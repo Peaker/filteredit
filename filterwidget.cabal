@@ -1,0 +1,31 @@
+Name:                filteredit
+Version:             0.0.1
+Cabal-Version:       >= 1.2
+Synopsis:            Filter Editor based on the datastore backend
+Category:            editors, development
+Description:
+  The datastore-based filter editor.
+
+Author:              Eyal Lotem
+Maintainer:          eyal.lotem@gmail.com
+Copyright:           (c) 2010 by Eyal Lotem
+License:             GPL
+Stability:           experimental
+build-type:          Simple
+
+Executable Editor
+  hs-Source-Dirs:      src
+  Extensions:
+  Build-Depends:       base >= 4 && < 5, 
+                       derive >= 2.3 && < 2.4,
+                       vtywidgets >= 0.0.6 && < 0.1,
+                       vty >= 4.2.1 && < 4.3,
+                       datastore >= 0.0 && < 0.1,
+                       fclabels >= 0.4.2 && < 0.5,
+                       binary == 0.5.*
+  Other-Modules:       Editor.Filter,
+                       Editor.Anchors,
+                       Editor.Config
+  ghc-options:         -O2 -Wall
+  main-is:             Editor/Main.hs
+  ghc-prof-options:    -prof -auto-all

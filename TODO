@@ -1,0 +1,41 @@
+Filter widget needs to allow interactively building a filter.
+
+ * Support undo via versioned store
+
+Filter combinators:
+
+ * Disable: Returns Nothing
+   * Key to replace it with its content, key to place it around something
+   * Colors red background around child
+
+ * Not: Returns opposite of child
+   * Key to replace it with its content, key to place it around something
+
+ * And/Or: Logical composition of multiple children
+
+ * String
+   * Key to toggle case sensitivity
+   * Key to toggle regexp (escapes when RE enabled, removes regexp when disabled)
+   * Completion based on a trie for all available substrings
+     * Build trie for all strings, then unify all nodes into roots
+
+ * Enum search
+   * Enum Type
+     * Maybe (Enum Value)
+
+ * Number
+   * Collapsable size selection (All sizes selected by default)
+   * Collapsable signedness selection (Both signed/unsigned selected by default)
+   * Contains a Numeric filter
+
+ * Numeric filter:
+   * Currently only support (==) filter, but also add build-up of
+     composite numeric filters later
+
+ * Process/thread
+
+ * Facility
+   * Checkbox for each facility
+
+ * Severity:
+   * Checkbox for each severity
