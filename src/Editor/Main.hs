@@ -4,8 +4,6 @@
 module Main(main) where
 
 import           Prelude                          hiding ((.))
-import           Control.Arrow                    (first)
-import           Control.Applicative              (pure)
 import           Control.Category                 ((.))
 import           Control.Monad                    (when, liftM)
 import           Data.List.Utils                  (safeIndex)
@@ -19,17 +17,14 @@ import           Data.Store.Rev.View              (View)
 import qualified Data.Store.Rev.View              as View
 import           Data.Monoid                      (Monoid(..))
 import           Data.Maybe                       (fromJust)
-import           Data.Vector.Rect                 (Rect(Rect))
 import           Data.Vector.Vector2              (Vector2(..))
 import qualified Graphics.Vty                     as Vty
-import qualified Graphics.UI.VtyWidgets.Align     as Align
 import qualified Graphics.UI.VtyWidgets.TextView  as TextView
 import qualified Graphics.UI.VtyWidgets.TextEdit  as TextEdit
 import qualified Graphics.UI.VtyWidgets.Box       as Box
 import qualified Graphics.UI.VtyWidgets.Spacer    as Spacer
 import qualified Graphics.UI.VtyWidgets.Widget    as Widget
 import qualified Graphics.UI.VtyWidgets.Keymap    as Keymap
-import qualified Graphics.UI.VtyWidgets.TermImage as TermImage
 import           Graphics.UI.VtyWidgets.Display   (Display)
 import qualified Graphics.UI.VtyWidgets.SizeRange as SizeRange
 import           Graphics.UI.VtyWidgets.Widget    (Widget)
@@ -40,6 +35,9 @@ import qualified Editor.Filter                    as Filter
 import qualified Editor.Anchors                   as Anchors
 import           Editor.Anchors                   (DBTag, ViewTag)
 import qualified Editor.Config                    as Config
+
+type MWidget m = m (Widget (m ()))
+type TWidget t m a = Widget (Transaction t m a)
 
 widthSpace :: Int -> Display a
 widthSpace width = Spacer.make . SizeRange.fixedSize $ Vector2 width 0
@@ -77,16 +75,16 @@ popCurChild boxModelRef valuesRef = do
 
 makeBox :: Monad m =>
            Box.Orientation ->
-           [Widget (Transaction t m ())] ->
+           [TWidget t m ()] ->
            Transaction.Property t m Box.Model ->
-           Transaction t m (Widget (Transaction t m ()))
+           MWidget (Transaction t m)
 makeBox orientation rows boxModelRef =
   Box.make orientation (Property.set boxModelRef) rows `liftM`
   Property.get boxModelRef
 
 makeTextEdit :: Monad m => Int -> Vty.Attr -> Vty.Attr ->
                 Transaction.Property t m TextEdit.Model ->
-                Transaction t m (Widget (Transaction t m ()))
+                MWidget (Transaction t m)
 makeTextEdit maxLines defAttr editAttr textEditModelRef =
   liftM (fmap (Property.set textEditModelRef) .
         TextEdit.make "<empty>" maxLines defAttr editAttr) $
@@ -94,9 +92,9 @@ makeTextEdit maxLines defAttr editAttr textEditModelRef =
 
 makeChoiceWidget :: Monad m =>
                     Box.Orientation ->
-                    [(Widget (Transaction t m ()), k)] ->
+                    [(TWidget t m (), k)] ->
                     Transaction.Property t m Box.Model ->
-                    Transaction t m (Widget (Transaction t m ()), k)
+                    Transaction t m (TWidget t m (), k)
 makeChoiceWidget orientation keys boxModelRef = do
   widget <- makeBox orientation widgets boxModelRef
   itemIndex <- Box.modelCursor `liftM` Property.get boxModelRef
@@ -108,22 +106,15 @@ makeChoiceWidget orientation keys boxModelRef = do
 
 focusableTextView :: String -> Widget a
 focusableTextView =
-  Widget.takesFocus .
-  (Widget.atDisplay . Align.to . pure $ 0) .
-  Widget.whenFocused modifyMkImage .
-  Widget.simpleDisplay .
+  Widget.coloredFocusableDisplay Vty.blue .
   TextView.make Vty.def_attr
-  where
-    modifyMkImage mkImage size =
-      mkImage size `mappend`
-      TermImage.rect (Rect (pure 0) size) (first (`Vty.with_back_color` Vty.blue))
 
-makeNoneEdit :: Monad m => Transaction ViewTag m (Widget (Transaction ViewTag m ()))
+makeNoneEdit :: Monad m => MWidget (Transaction ViewTag m)
 makeNoneEdit = return . focusableTextView $ "[no filter]"
 
 makeCommentFilterEdit :: Monad m =>
                          Transaction.Property ViewTag m Filter.CommentData ->
-                         Transaction ViewTag m (Widget (Transaction ViewTag m ()))
+                         MWidget (Transaction ViewTag m)
 makeCommentFilterEdit commentDataP = do
   childEdit <- makeFilterEdit childP
   textEdit <- makeTextEdit 1 TextEdit.defaultAttr TextEdit.editingAttr textEditP
@@ -135,7 +126,7 @@ makeCommentFilterEdit commentDataP = do
 
 makeFilterEdit :: Monad m =>
                   Transaction.Property ViewTag m Filter ->
-                  Transaction ViewTag m (Widget (Transaction ViewTag m ()))
+                  MWidget (Transaction ViewTag m)
 makeFilterEdit filterP = do
   f <- Property.get filterP
   case f of
@@ -145,7 +136,6 @@ makeFilterEdit filterP = do
 -- Take a widget parameterized on transaction on views (that lives in
 -- a nested transaction monad) and convert it to one parameterized on
 -- the nested transaction
-type MWidget m = m (Widget (m ()))
 widgetDownTransaction :: Monad m =>
                          Store t m ->
                          MWidget (Transaction t m) ->
@@ -159,7 +149,7 @@ branchSelectorBoxModel = Anchors.dbBoxsAnchor "branchSelector"
 
 -- Apply the transactions to the given View and convert them to
 -- transactions on a DB
-makeWidgetForView :: Monad m => View -> Transaction DBTag m (Widget (Transaction DBTag m ()))
+makeWidgetForView :: Monad m => View -> MWidget (Transaction DBTag m)
 makeWidgetForView view = do
   versionData <- Version.versionData =<< View.curVersion view
   widget <- widgetDownTransaction (Anchors.viewStore view) $ makeFilterEdit Anchors.filter
