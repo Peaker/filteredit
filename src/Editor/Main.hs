@@ -3,106 +3,37 @@
 
 module Main(main) where
 
-import           Prelude                          hiding ((.))
-import           Control.Category                 ((.))
-import           Control.Monad                    (when, liftM)
-import           Data.List.Utils                  (safeIndex)
-import qualified Data.Store.Transaction           as Transaction
-import           Data.Store.Transaction           (Transaction, Store)
-import           Data.Store.Property              (composeLabel)
-import qualified Data.Store.Property              as Property
-import qualified Data.Store.Rev.Version           as Version
-import qualified Data.Store.Rev.Branch            as Branch
-import           Data.Store.Rev.View              (View)
-import qualified Data.Store.Rev.View              as View
-import           Data.Monoid                      (Monoid(..))
-import           Data.Maybe                       (fromJust)
-import           Data.Vector.Vector2              (Vector2(..))
-import qualified Graphics.Vty                     as Vty
-import qualified Graphics.UI.VtyWidgets.TextView  as TextView
-import qualified Graphics.UI.VtyWidgets.TextEdit  as TextEdit
-import qualified Graphics.UI.VtyWidgets.Box       as Box
-import qualified Graphics.UI.VtyWidgets.Spacer    as Spacer
-import qualified Graphics.UI.VtyWidgets.Widget    as Widget
-import qualified Graphics.UI.VtyWidgets.Keymap    as Keymap
-import           Graphics.UI.VtyWidgets.Display   (Display)
-import qualified Graphics.UI.VtyWidgets.SizeRange as SizeRange
-import           Graphics.UI.VtyWidgets.Widget    (Widget)
-import qualified Graphics.UI.VtyWidgets.Run       as Run
-import qualified Data.Store.Db                    as Db
-import           Editor.Filter                    (Filter)
-import qualified Editor.Filter                    as Filter
-import qualified Editor.Anchors                   as Anchors
-import           Editor.Anchors                   (DBTag, ViewTag)
-import qualified Editor.Config                    as Config
-
-type MWidget m = m (Widget (m ()))
-type TWidget t m a = Widget (Transaction t m a)
-
-widthSpace :: Int -> Display a
-widthSpace width = Spacer.make . SizeRange.fixedSize $ Vector2 width 0
-
-indent :: Int -> Display a -> Display a
-indent width disp = Box.makeView Box.Horizontal [widthSpace width, disp]
-
-appendBoxChild :: Monad m =>
-                   Transaction.Property t m Box.Model ->
-                   Transaction.Property t m [a] ->
-                   a -> Transaction t m ()
-appendBoxChild boxModelRef valuesRef value = do
-  values <- Property.get valuesRef
-  Property.set valuesRef (values ++ [value])
-  Property.set boxModelRef . Box.Model . length $ values
-
-removeAt :: Int -> [a] -> [a]
-removeAt n xs = take n xs ++ drop (n+1) xs
-
-popCurChild :: Monad m =>
-               Transaction.Property t m Box.Model ->
-               Transaction.Property t m [a] ->
-               Transaction t m (Maybe a)
-popCurChild boxModelRef valuesRef = do
-  values <- Property.get valuesRef
-  curIndex <- Box.modelCursor `liftM` Property.get boxModelRef
-  let value = curIndex `safeIndex` values
-  maybe (return ()) (delChild curIndex values) value
-  return value
-  where
-    delChild curIndex values _child = do
-      Property.set valuesRef (curIndex `removeAt` values)
-      when (curIndex >= length values - 1) .
-        Property.pureModify boxModelRef . Box.inModel $ subtract 1
-
-makeBox :: Monad m =>
-           Box.Orientation ->
-           [TWidget t m ()] ->
-           Transaction.Property t m Box.Model ->
-           MWidget (Transaction t m)
-makeBox orientation rows boxModelRef =
-  Box.make orientation (Property.set boxModelRef) rows `liftM`
-  Property.get boxModelRef
-
-makeTextEdit :: Monad m => Int -> Vty.Attr -> Vty.Attr ->
-                Transaction.Property t m TextEdit.Model ->
-                MWidget (Transaction t m)
-makeTextEdit maxLines defAttr editAttr textEditModelRef =
-  liftM (fmap (Property.set textEditModelRef) .
-        TextEdit.make "<empty>" maxLines defAttr editAttr) $
-  Property.get textEditModelRef
-
-makeChoiceWidget :: Monad m =>
-                    Box.Orientation ->
-                    [(TWidget t m (), k)] ->
-                    Transaction.Property t m Box.Model ->
-                    Transaction t m (TWidget t m (), k)
-makeChoiceWidget orientation keys boxModelRef = do
-  widget <- makeBox orientation widgets boxModelRef
-  itemIndex <- Box.modelCursor `liftM` Property.get boxModelRef
-  return (widget, items !! min maxIndex itemIndex)
-  where
-    maxIndex = length items - 1
-    widgets = map fst keys
-    items = map snd keys
+import           Prelude                         hiding ((.))
+import           Control.Category                ((.))
+import           Control.Monad                   (liftM)
+import           Data.Store.VtyWidgets           (MWidget, widgetDownTransaction,
+                                                  makeTextEdit, makeBox, appendBoxChild, popCurChild, makeChoiceWidget)
+import qualified Data.Store.Transaction          as Transaction
+import           Data.Store.Transaction          (Transaction)
+import           Data.Store.Property             (composeLabel)
+import qualified Data.Store.Property             as Property
+import qualified Data.Store.Rev.Version          as Version
+import qualified Data.Store.Rev.Branch           as Branch
+import           Data.Store.Rev.View             (View)
+import qualified Data.Store.Rev.View             as View
+import qualified Data.Record.Label               as Label
+import           Data.Monoid                     (Monoid(..))
+import           Data.Maybe                      (fromJust)
+import qualified Graphics.Vty                    as Vty
+import qualified Graphics.UI.VtyWidgets.TextView as TextView
+import qualified Graphics.UI.VtyWidgets.TextEdit as TextEdit
+import qualified Graphics.UI.VtyWidgets.Box      as Box
+import qualified Graphics.UI.VtyWidgets.Spacer   as Spacer
+import qualified Graphics.UI.VtyWidgets.Widget   as Widget
+import qualified Graphics.UI.VtyWidgets.Keymap   as Keymap
+import           Graphics.UI.VtyWidgets.Widget   (Widget)
+import qualified Graphics.UI.VtyWidgets.Run      as Run
+import qualified Data.Store.Db                   as Db
+import           Editor.Filter                   (Filter)
+import qualified Editor.Filter                   as Filter
+import qualified Editor.Anchors                  as Anchors
+import           Editor.Anchors                  (DBTag, ViewTag)
+import qualified Editor.Config                   as Config
 
 focusableTextView :: String -> Widget a
 focusableTextView =
@@ -118,7 +49,7 @@ makeCommentFilterEdit :: Monad m =>
 makeCommentFilterEdit commentDataP = do
   childEdit <- makeFilterEdit childP
   textEdit <- makeTextEdit 1 TextEdit.defaultAttr TextEdit.editingAttr textEditP
-  makeBox Box.Vertical [ textEdit, Widget.atDisplay (indent 4) childEdit ] boxP
+  makeBox Box.Vertical [ textEdit, Widget.atDisplay (Spacer.indent 4) childEdit ] boxP
   where
     textEditP = Filter.commentTextEdit `composeLabel` commentDataP
     boxP      = Filter.commentBox      `composeLabel` commentDataP
@@ -129,20 +60,24 @@ makeFilterEdit :: Monad m =>
                   MWidget (Transaction ViewTag m)
 makeFilterEdit filterP = do
   f <- Property.get filterP
-  case f of
+  widget <- case f of
     Filter.None -> makeNoneEdit
-    Filter.Comment commentDataIRef -> makeCommentFilterEdit (Transaction.fromIRef commentDataIRef)
-
--- Take a widget parameterized on transaction on views (that lives in
--- a nested transaction monad) and convert it to one parameterized on
--- the nested transaction
-widgetDownTransaction :: Monad m =>
-                         Store t m ->
-                         MWidget (Transaction t m) ->
-                         MWidget m
-widgetDownTransaction store = runTrans . (liftM . fmap) runTrans
+    Filter.Comment commentDataIRef ->
+      let commentDataP = Transaction.fromIRef commentDataIRef in
+      Widget.weakerKeys (delCommentKeymap commentDataP) `liftM`
+      makeCommentFilterEdit commentDataP
+  return .
+    Widget.weakerKeys (wrapCommentKeymap f) $
+    widget
   where
-    runTrans = Transaction.run store
+    delCommentKeymap = Keymap.fromGroup Config.delCommentKeys "Delete comment" . delComment
+    delComment commentDataP = do
+      child <- Label.get Filter.commentChild `liftM` Property.get commentDataP
+      Property.set filterP child
+    wrapCommentKeymap = Keymap.fromGroup Config.addCommentKeys "Add comment" . wrapComment
+    wrapComment f = do
+      firef <- Transaction.newIRef $ Filter.CommentData (TextEdit.initModel "") Box.initModel f
+      Property.set filterP $ Filter.Comment firef
 
 branchSelectorBoxModel :: Monad m => Transaction.Property DBTag m Box.Model
 branchSelectorBoxModel = Anchors.dbBoxsAnchor "branchSelector"
@@ -156,7 +91,7 @@ makeWidgetForView view = do
   return $ Widget.strongerKeys (keymaps versionData) widget
   where
     keymaps versionData = undoKeymap versionData `mappend` makeBranchKeymap
-    makeBranchKeymap = Keymap.simpleton "New Branch" Config.makeBranchKey makeBranch
+    makeBranchKeymap = Keymap.fromGroup Config.makeBranchKeys "New Branch" makeBranch
     makeBranch = do
       branch <- Branch.new =<< View.curVersion view
       textEditModelIRef <- Transaction.newIRef $ TextEdit.initModel "New view"
@@ -164,14 +99,14 @@ makeWidgetForView view = do
       appendBoxChild branchSelectorBoxModel Anchors.branches viewPair
     undoKeymap versionData =
         if Version.depth versionData > 1
-        then Keymap.simpleton "Undo" Config.undoKey .
+        then Keymap.fromGroup Config.undoKeys "Undo" .
              View.move view .
              fromJust . Version.parent $
              versionData
         else mempty
 
 main :: IO ()
-main = Db.withDb "/tmp/db.db" $ runDbStore . Anchors.dbStore
+main = Db.withDb "/tmp/filteredit.db" $ runDbStore . Anchors.dbStore
   where
     runDbStore store = do
       Anchors.initDB store
@@ -195,8 +130,8 @@ main = Db.withDb "/tmp/db.db" $ runDbStore . Anchors.dbStore
       return (textEdit, version)
 
     delBranchKeymap [_] = mempty
-    delBranchKeymap _ = Keymap.simpleton "Delete Branch" Config.delBranchKey deleteCurBranch
-    quitKeymap = Keymap.simpleton "Quit" Config.quitKey . fail $ "Quit"
+    delBranchKeymap _ = Keymap.fromGroup Config.delBranchKeys "Delete Branch" deleteCurBranch
+    quitKeymap = Keymap.fromGroup Config.quitKeys "Quit" . fail $ "Quit"
 
     deleteCurBranch = do
       _ <- popCurChild branchSelectorBoxModel Anchors.branches
