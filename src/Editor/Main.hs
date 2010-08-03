@@ -101,7 +101,7 @@ makeFilterEdit filterP = do
          makeCommentFilterEdit commentDataP
     Filter.Reverse reverseDataIRef ->
       let reverseDataP = Transaction.fromIRef reverseDataIRef
-      in Widget.weakerKeys (delParentKeymap "Reverse" Config.reverseKeys $
+      in Widget.weakerKeys (delParentKeymap "Unreverse" Config.reverseKeys $
                             Filter.reverseChild `composeLabel` reverseDataP) `liftM`
          makeReverseFilterEdit reverseDataP
     Filter.Disable childIRef ->
@@ -127,7 +127,7 @@ makeFilterEdit filterP = do
       Property.set filterP . Filter.Comment <=<
       Transaction.newIRef . Filter.CommentData (TextEdit.initModel "") Box.initModel
     wrapReverseKeymap (Filter.Reverse {}) = mempty
-    wrapReverseKeymap f = Keymap.fromGroup Config.reverseKeys "Reverse(reverse) on filter" . wrapReverse $ f
+    wrapReverseKeymap f = Keymap.fromGroup Config.reverseKeys "Reverse(NOT) on filter" . wrapReverse $ f
     wrapReverse =
       Property.set filterP . Filter.Reverse <=<
       Transaction.newIRef . Filter.ReverseData (FocusDelegator.initModel False)
