@@ -3,18 +3,19 @@
 module Editor.Filter(
     Filter(..),
     CommentData(..), commentTextEdit, commentBox, commentChild,
-    ReverseData(..), reverseBox, reverseChild
+    ReverseData(..), reverseFD, reverseChild
 ) where
 
-import           Data.Binary                     (Binary(..))
-import           Data.Binary.Get                 (getWord8)
-import           Data.Binary.Put                 (putWord8)
-import           Data.DeriveTH                   (derive)
-import           Data.Derive.Binary              (makeBinary)
-import           Data.Store.IRef                 (IRef)
-import           Data.Record.Label               ((:->), mkLabels, label)
-import qualified Graphics.UI.VtyWidgets.TextEdit as TextEdit
-import qualified Graphics.UI.VtyWidgets.Box      as Box
+import           Data.Binary                           (Binary(..))
+import           Data.Binary.Get                       (getWord8)
+import           Data.Binary.Put                       (putWord8)
+import           Data.DeriveTH                         (derive)
+import           Data.Derive.Binary                    (makeBinary)
+import           Data.Store.IRef                       (IRef)
+import           Data.Record.Label                     ((:->), mkLabels, label)
+import qualified Graphics.UI.VtyWidgets.TextEdit       as TextEdit
+import qualified Graphics.UI.VtyWidgets.Box            as Box
+import qualified Graphics.UI.VtyWidgets.FocusDelegator as FocusDelegator
 
 data Filter = Comment (IRef CommentData)
             | Disable (IRef Filter)
@@ -28,7 +29,7 @@ data CommentData = CommentData { _commentTextEdit :: TextEdit.Model,
                                }
   deriving (Show, Read, Eq, Ord)
 
-data ReverseData = ReverseData { _reverseBox :: Box.Model,
+data ReverseData = ReverseData { _reverseFD :: FocusDelegator.Model,
                                  _reverseChild :: Filter
                                }
   deriving (Show, Read, Eq, Ord)
@@ -41,7 +42,7 @@ commentChild :: CommentData :-> Filter
 
 $(mkLabels [''ReverseData])
 
-reverseBox :: ReverseData :-> Box.Model
+reverseFD :: ReverseData :-> FocusDelegator.Model
 reverseChild :: ReverseData :-> Filter
 
 $(derive makeBinary ''Filter)

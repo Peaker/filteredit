@@ -3,39 +3,40 @@
 
 module Main(main) where
 
-import           Prelude                          hiding ((.))
-import           Control.Category                 ((.))
-import           Control.Monad                    (liftM, (<=<))
-import           Data.Function.Utils              (result)
+import           Prelude                               hiding ((.))
+import           Control.Category                      ((.))
+import           Control.Monad                         (liftM, (<=<))
+import           Data.Function.Utils                   (result)
 import           Data.Store.VtyWidgets            (MWidget, widgetDownTransaction,
                                                    makeTextEdit, makeBox, appendBoxChild, popCurChild, makeChoiceWidget)
-import qualified Data.Store.Transaction           as Transaction
-import           Data.Store.Transaction           (Transaction)
-import           Data.Store.Property              (composeLabel)
-import qualified Data.Store.Property              as Property
-import qualified Data.Store.Rev.Version           as Version
-import qualified Data.Store.Rev.Branch            as Branch
-import           Data.Store.Rev.View              (View)
-import qualified Data.Store.Rev.View              as View
-import           Data.Monoid                      (Monoid(..))
-import           Data.Maybe                       (fromJust)
-import qualified Graphics.Vty                     as Vty
-import qualified Graphics.UI.VtyWidgets.TermImage as TermImage
-import qualified Graphics.UI.VtyWidgets.TextView  as TextView
-import qualified Graphics.UI.VtyWidgets.TextEdit  as TextEdit
-import qualified Graphics.UI.VtyWidgets.Box       as Box
-import qualified Graphics.UI.VtyWidgets.Spacer    as Spacer
-import qualified Graphics.UI.VtyWidgets.Widget    as Widget
-import qualified Graphics.UI.VtyWidgets.Keymap    as Keymap
-import           Graphics.UI.VtyWidgets.Widget    (Widget)
-import           Graphics.UI.VtyWidgets.Display   (Display)
-import qualified Graphics.UI.VtyWidgets.Run       as Run
-import qualified Data.Store.Db                    as Db
-import           Editor.Filter                    (Filter)
-import qualified Editor.Filter                    as Filter
-import qualified Editor.Anchors                   as Anchors
-import           Editor.Anchors                   (DBTag, ViewTag)
-import qualified Editor.Config                    as Config
+import qualified Data.Store.Transaction                as Transaction
+import           Data.Store.Transaction                (Transaction)
+import           Data.Store.Property                   (composeLabel)
+import qualified Data.Store.Property                   as Property
+import qualified Data.Store.Rev.Version                as Version
+import qualified Data.Store.Rev.Branch                 as Branch
+import           Data.Store.Rev.View                   (View)
+import qualified Data.Store.Rev.View                   as View
+import           Data.Monoid                           (Monoid(..))
+import           Data.Maybe                            (fromJust)
+import qualified Graphics.Vty                          as Vty
+import qualified Graphics.UI.VtyWidgets.TermImage      as TermImage
+import qualified Graphics.UI.VtyWidgets.TextView       as TextView
+import qualified Graphics.UI.VtyWidgets.TextEdit       as TextEdit
+import qualified Graphics.UI.VtyWidgets.Box            as Box
+import qualified Graphics.UI.VtyWidgets.FocusDelegator as FocusDelegator
+import qualified Graphics.UI.VtyWidgets.Spacer         as Spacer
+import qualified Graphics.UI.VtyWidgets.Widget         as Widget
+import qualified Graphics.UI.VtyWidgets.Keymap         as Keymap
+import           Graphics.UI.VtyWidgets.Widget         (Widget)
+import           Graphics.UI.VtyWidgets.Display        (Display)
+import qualified Graphics.UI.VtyWidgets.Run            as Run
+import qualified Data.Store.Db                         as Db
+import           Editor.Filter                         (Filter)
+import qualified Editor.Filter                         as Filter
+import qualified Editor.Anchors                        as Anchors
+import           Editor.Anchors                        (DBTag, ViewTag)
+import qualified Editor.Config                         as Config
 
 focusableTextView :: String -> Widget a
 focusableTextView =
@@ -64,11 +65,12 @@ makeReverseFilterEdit :: Monad m =>
                      Transaction.Property ViewTag m Filter.ReverseData ->
                      MWidget (Transaction ViewTag m)
 makeReverseFilterEdit reverseDataP = do
-  childEdit <- makeFilterEdit childP
-  makeBox Box.Horizontal [ focusableTextView "NOT ", childEdit ] boxP
+  childEdit <- Widget.atDisplay (prefix "NOT ") `liftM`
+               makeFilterEdit childP
+  FocusDelegator.make (Property.set fdP) childEdit `liftM` Property.get fdP
   where
-    boxP      = Filter.reverseBox      `composeLabel` reverseDataP
-    childP    = Filter.reverseChild    `composeLabel` reverseDataP
+    fdP    = Filter.reverseFD    `composeLabel` reverseDataP
+    childP = Filter.reverseChild `composeLabel` reverseDataP
 
 horizontal :: Display a -> Display a -> Display a
 horizontal left right = Box.makeView Box.Horizontal [left, right]
@@ -93,15 +95,18 @@ makeFilterEdit filterP = do
     Filter.None -> makeNoneEdit
     Filter.Comment commentDataIRef ->
       let commentDataP = Transaction.fromIRef commentDataIRef
-      in Widget.weakerKeys (delParentKeymap Config.uncommentKeys $ Filter.commentChild `composeLabel` commentDataP) `liftM`
+      in Widget.weakerKeys (delParentKeymap "Delete comment" Config.uncommentKeys $
+                            Filter.commentChild `composeLabel` commentDataP)
+         `liftM`
          makeCommentFilterEdit commentDataP
     Filter.Reverse reverseDataIRef ->
       let reverseDataP = Transaction.fromIRef reverseDataIRef
-      in Widget.weakerKeys (delParentKeymap Config.reverseKeys $ Filter.reverseChild `composeLabel` reverseDataP) `liftM`
+      in Widget.weakerKeys (delParentKeymap "Reverse" Config.reverseKeys $
+                            Filter.reverseChild `composeLabel` reverseDataP) `liftM`
          makeReverseFilterEdit reverseDataP
     Filter.Disable childIRef ->
       let childP = Transaction.fromIRef childIRef
-      in Widget.weakerKeys (delParentKeymap Config.enableKeys childP) `liftM`
+      in Widget.weakerKeys (delParentKeymap "Enable" Config.enableKeys childP) `liftM`
          makeDisableFilterEdit childP
   return .
     Widget.weakerKeys (
@@ -110,7 +115,7 @@ makeFilterEdit filterP = do
       disableKeymap $ f) $
     widget
   where
-    delParentKeymap keys = Keymap.fromGroup keys "Delete comment" . delParent
+    delParentKeymap doc keys = Keymap.fromGroup keys doc . delParent
     delParent childP = Property.set filterP =<< Property.get childP
     disableKeymap (Filter.Disable {}) = mempty
     disableKeymap f = Keymap.fromGroup Config.disableKeys "Disable" $ disable f
@@ -125,7 +130,7 @@ makeFilterEdit filterP = do
     wrapReverseKeymap f = Keymap.fromGroup Config.reverseKeys "Reverse(reverse) on filter" . wrapReverse $ f
     wrapReverse =
       Property.set filterP . Filter.Reverse <=<
-      Transaction.newIRef . Filter.ReverseData Box.initModel
+      Transaction.newIRef . Filter.ReverseData (FocusDelegator.initModel False)
 
 branchSelectorBoxModel :: Monad m => Transaction.Property DBTag m Box.Model
 branchSelectorBoxModel = Anchors.dbBoxsAnchor "branchSelector"
