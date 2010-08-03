@@ -1,7 +1,11 @@
 {-# OPTIONS -fno-warn-missing-signatures #-}
 
-module Editor.Config(quitKeys, undoKeys, makeBranchKeys, delBranchKeys,
-                     addCommentKeys, delParentKeys)
+module Editor.Config(
+    quitKeys, undoKeys, makeBranchKeys, delBranchKeys,
+    enableKeys, disableKeys,
+    addCommentKeys, uncommentKeys,
+    reverseKeys,
+    disableBackgroundColor, disableFocusedBackgroundColor)
 where
 
 import qualified Graphics.Vty as Vty
@@ -14,6 +18,11 @@ altSemicolon = ("Meta-;",
                 ,([Vty.MMeta], Vty.KASCII ';') -- rxvt
                 ])
 
+altThree = ("Alt-3",
+            [([], Vty.KASCII '\179') -- xterm
+            ,([Vty.MMeta], Vty.KASCII '3') -- rxvt
+            ])
+
 -- ascii k = Keymap.simpletonGroup ([], (Vty.KASCII k))
 ctrl k = Keymap.simpletonGroup ([Vty.MCtrl], Vty.KASCII k)
 
@@ -22,4 +31,10 @@ undoKeys       = ctrl 'z'
 makeBranchKeys = ctrl 's'
 delBranchKeys  = ctrl 'o'
 addCommentKeys = altSemicolon
-delParentKeys = ctrl 'o'
+uncommentKeys  = altSemicolon
+disableKeys    = altThree
+enableKeys     = altThree
+reverseKeys    = ctrl 'n'
+
+disableBackgroundColor = Vty.red
+disableFocusedBackgroundColor = Vty.magenta

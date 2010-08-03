@@ -2,7 +2,8 @@
 {-# LANGUAGE TemplateHaskell, TypeOperators #-}
 module Editor.Filter(
     Filter(..),
-    CommentData(..), commentTextEdit, commentBox, commentChild
+    CommentData(..), commentTextEdit, commentBox, commentChild,
+    ReverseData(..), reverseBox, reverseChild
 ) where
 
 import           Data.Binary                     (Binary(..))
@@ -16,6 +17,8 @@ import qualified Graphics.UI.VtyWidgets.TextEdit as TextEdit
 import qualified Graphics.UI.VtyWidgets.Box      as Box
 
 data Filter = Comment (IRef CommentData)
+            | Disable (IRef Filter)
+            | Reverse (IRef ReverseData)
             | None
   deriving (Show, Read, Eq, Ord)
 
@@ -24,9 +27,23 @@ data CommentData = CommentData { _commentTextEdit :: TextEdit.Model,
                                  _commentChild :: Filter
                                }
   deriving (Show, Read, Eq, Ord)
+
+data ReverseData = ReverseData { _reverseBox :: Box.Model,
+                                 _reverseChild :: Filter
+                               }
+  deriving (Show, Read, Eq, Ord)
+
 $(mkLabels [''CommentData])
+
 commentTextEdit :: CommentData :-> TextEdit.Model
 commentBox :: CommentData :-> Box.Model
 commentChild :: CommentData :-> Filter
+
+$(mkLabels [''ReverseData])
+
+reverseBox :: ReverseData :-> Box.Model
+reverseChild :: ReverseData :-> Filter
+
 $(derive makeBinary ''Filter)
 $(derive makeBinary ''CommentData)
+$(derive makeBinary ''ReverseData)

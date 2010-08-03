@@ -1,15 +1,15 @@
 Filter combinators:
 
  Done: Comment
-
- * Disable: Returns Nothing
-   * Key to replace it with its content, key to place it around something
-   * Colors red background around child
+ Done: Disable
 
  * Not: Returns opposite of child
-   * Key to replace it with its content, key to place it around something
+
+ * FocusDelegator around each to free up keys
 
  * And/Or: Logical composition of multiple children
+
+ * Process/thread
 
  * String
    * Key to toggle case sensitivity
@@ -29,8 +29,6 @@ Filter combinators:
  * Numeric filter:
    * Currently only support (==) filter, but also add build-up of
      composite numeric filters later
-
- * Process/thread
 
  * Facility
    * Checkbox for each facility
