@@ -16,7 +16,6 @@ import qualified Data.Store.Rev.Version          as Version
 import qualified Data.Store.Rev.Branch           as Branch
 import           Data.Store.Rev.View             (View)
 import qualified Data.Store.Rev.View             as View
-import qualified Data.Record.Label               as Label
 import           Data.Monoid                     (Monoid(..))
 import           Data.Maybe                      (fromJust)
 import qualified Graphics.Vty                    as Vty
@@ -63,17 +62,15 @@ makeFilterEdit filterP = do
   widget <- case f of
     Filter.None -> makeNoneEdit
     Filter.Comment commentDataIRef ->
-      let commentDataP = Transaction.fromIRef commentDataIRef in
-      Widget.weakerKeys (delCommentKeymap commentDataP) `liftM`
-      makeCommentFilterEdit commentDataP
+      let commentDataP = Transaction.fromIRef commentDataIRef
+      in Widget.weakerKeys (delParentKeymap $ Filter.commentChild `composeLabel` commentDataP) `liftM`
+         makeCommentFilterEdit commentDataP
   return .
     Widget.weakerKeys (wrapCommentKeymap f) $
     widget
   where
-    delCommentKeymap = Keymap.fromGroup Config.delCommentKeys "Delete comment" . delComment
-    delComment commentDataP = do
-      child <- Label.get Filter.commentChild `liftM` Property.get commentDataP
-      Property.set filterP child
+    delParentKeymap = Keymap.fromGroup Config.delParentKeys "Delete comment" . delParent
+    delParent childP = Property.set filterP =<< Property.get childP
     wrapCommentKeymap = Keymap.fromGroup Config.addCommentKeys "Add comment" . wrapComment
     wrapComment f = do
       firef <- Transaction.newIRef $ Filter.CommentData (TextEdit.initModel "") Box.initModel f

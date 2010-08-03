@@ -1,7 +1,7 @@
 {-# OPTIONS -fno-warn-missing-signatures #-}
 
 module Editor.Config(quitKeys, undoKeys, makeBranchKeys, delBranchKeys,
-                     addCommentKeys, delCommentKeys)
+                     addCommentKeys, delParentKeys)
 where
 
 import qualified Graphics.Vty as Vty
@@ -22,4 +22,4 @@ undoKeys       = ctrl 'z'
 makeBranchKeys = ctrl 's'
 delBranchKeys  = ctrl 'o'
 addCommentKeys = altSemicolon
-delCommentKeys = ctrl 'o'
+delParentKeys = ctrl 'o'

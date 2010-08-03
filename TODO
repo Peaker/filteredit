@@ -1,8 +1,6 @@
-Filter widget needs to allow interactively building a filter.
-
- * Support undo via versioned store
-
 Filter combinators:
+
+ Done: Comment
 
  * Disable: Returns Nothing
    * Key to replace it with its content, key to place it around something
