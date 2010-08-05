@@ -23,18 +23,19 @@ altThree = ("Alt-3",
             ,([Vty.MMeta], Vty.KASCII '3') -- rxvt
             ])
 
--- ascii k = Keymap.simpletonGroup ([], (Vty.KASCII k))
-ctrl k = Keymap.simpletonGroup ([Vty.MCtrl], Vty.KASCII k)
+group mods k = Keymap.simpletonGroup (mods, k)
+ascii k = Keymap.simpletonGroup ([], (Vty.KASCII k))
+ctrl k = group [Vty.MCtrl] $ Vty.KASCII k
 
-quitKeys       = ctrl 'q'
-undoKeys       = ctrl 'z'
-makeBranchKeys = ctrl 's'
-delBranchKeys  = ctrl 'o'
-addCommentKeys = altSemicolon
-uncommentKeys  = altSemicolon
-disableKeys    = altThree
-enableKeys     = altThree
-reverseKeys    = ctrl 'n'
+quitKeys       = [ctrl 'q']
+undoKeys       = [ctrl 'z']
+makeBranchKeys = [ctrl 's']
+delBranchKeys  = [ctrl 'o']
+addCommentKeys = [altSemicolon, ascii ';']
+uncommentKeys  = [altSemicolon, ascii ';']
+disableKeys    = [altThree]
+enableKeys     = [altThree]
+reverseKeys    = [ctrl 'n', ascii 'n']
 
 disableBackgroundColor = Vty.red
 disableFocusedBackgroundColor = Vty.magenta

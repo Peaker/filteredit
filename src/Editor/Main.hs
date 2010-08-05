@@ -46,17 +46,27 @@ focusableTextView =
 makeNoneEdit :: Monad m => MWidget (Transaction ViewTag m)
 makeNoneEdit = return . focusableTextView $ "[no filter]"
 
+-- TODO: Move to datastore-vtywidgets
+makeFocusDelegator :: (Monad m) =>
+                      Property.Property m FocusDelegator.Model ->
+                      Widget (m ()) ->
+                      MWidget m
+makeFocusDelegator prop child = FocusDelegator.make (Property.set prop) child `liftM`
+                                Property.get prop
+
 makeCommentFilterEdit :: Monad m =>
                          Transaction.Property ViewTag m Filter.CommentData ->
                          MWidget (Transaction ViewTag m)
 makeCommentFilterEdit commentDataP = do
   childEdit <- makeFilterEdit childP
   textEdit <- simpleTextEdit textEditP
-  makeBox Box.Vertical [ textEdit, Widget.atDisplay (Spacer.indent 4) childEdit ] boxP
+  makeFocusDelegator fdP =<< makeBox Box.Vertical [ textEdit, Widget.atDisplay (Spacer.indent 4) childEdit ] boxP
   where
-    textEditP = Filter.commentTextEdit `composeLabel` commentDataP
-    boxP      = Filter.commentBox      `composeLabel` commentDataP
-    childP    = Filter.commentChild    `composeLabel` commentDataP
+    property = (`composeLabel` commentDataP)
+    textEditP = property Filter.commentTextEdit
+    fdP       = property Filter.commentFD
+    boxP      = property Filter.commentBox
+    childP    = property Filter.commentChild
 
 prefix :: String -> Display a -> Display a
 prefix = horizontal . TextView.make Vty.def_attr
@@ -64,10 +74,10 @@ prefix = horizontal . TextView.make Vty.def_attr
 makeReverseFilterEdit :: Monad m =>
                      Transaction.Property ViewTag m Filter.ReverseData ->
                      MWidget (Transaction ViewTag m)
-makeReverseFilterEdit reverseDataP = do
-  childEdit <- Widget.atDisplay (prefix "NOT ") `liftM`
-               makeFilterEdit childP
-  FocusDelegator.make (Property.set fdP) childEdit `liftM` Property.get fdP
+makeReverseFilterEdit reverseDataP =
+  makeFocusDelegator fdP .
+    Widget.atDisplay (prefix "NOT ") =<<
+    makeFilterEdit childP
   where
     fdP    = Filter.reverseFD    `composeLabel` reverseDataP
     childP = Filter.reverseChild `composeLabel` reverseDataP
@@ -115,19 +125,19 @@ makeFilterEdit filterP = do
       disableKeymap $ f) $
     widget
   where
-    delParentKeymap doc keys = Keymap.fromGroup keys doc . delParent
+    delParentKeymap doc keys = Keymap.fromKeyGroups keys doc . delParent
     delParent childP = Property.set filterP =<< Property.get childP
     disableKeymap (Filter.Disable {}) = mempty
-    disableKeymap f = Keymap.fromGroup Config.disableKeys "Disable" $ disable f
+    disableKeymap f = Keymap.fromKeyGroups Config.disableKeys "Disable" $ disable f
     disable f = do
       iref <- Transaction.newIRef f
       Property.set filterP $ Filter.Disable iref
-    wrapCommentKeymap = Keymap.fromGroup Config.addCommentKeys "Add comment" . wrapComment
+    wrapCommentKeymap = Keymap.fromKeyGroups Config.addCommentKeys "Add comment" . wrapComment
     wrapComment =
       Property.set filterP . Filter.Comment <=<
-      Transaction.newIRef . Filter.CommentData (TextEdit.initModel "") Box.initModel
+      Transaction.newIRef . Filter.CommentData (FocusDelegator.initModel True) (TextEdit.initModel "") Box.initModel
     wrapReverseKeymap (Filter.Reverse {}) = mempty
-    wrapReverseKeymap f = Keymap.fromGroup Config.reverseKeys "Reverse(NOT) on filter" . wrapReverse $ f
+    wrapReverseKeymap f = Keymap.fromKeyGroups Config.reverseKeys "Reverse(NOT) on filter" . wrapReverse $ f
     wrapReverse =
       Property.set filterP . Filter.Reverse <=<
       Transaction.newIRef . Filter.ReverseData (FocusDelegator.initModel False)
@@ -144,7 +154,7 @@ makeWidgetForView view = do
   return $ Widget.strongerKeys (keymaps versionData) widget
   where
     keymaps versionData = undoKeymap versionData `mappend` makeBranchKeymap
-    makeBranchKeymap = Keymap.fromGroup Config.makeBranchKeys "New Branch" makeBranch
+    makeBranchKeymap = Keymap.fromKeyGroups Config.makeBranchKeys "New Branch" makeBranch
     makeBranch = do
       branch <- Branch.new =<< View.curVersion view
       textEditModelIRef <- Transaction.newIRef $ TextEdit.initModel "New view"
@@ -152,7 +162,7 @@ makeWidgetForView view = do
       appendBoxChild branchSelectorBoxModel Anchors.branches viewPair
     undoKeymap versionData =
         if Version.depth versionData > 1
-        then Keymap.fromGroup Config.undoKeys "Undo" .
+        then Keymap.fromKeyGroups Config.undoKeys "Undo" .
              View.move view .
              fromJust . Version.parent $
              versionData
@@ -183,8 +193,8 @@ main = Db.withDb "/tmp/filteredit.db" $ runDbStore . Anchors.dbStore
       return (textEdit, version)
 
     delBranchKeymap [_] = mempty
-    delBranchKeymap _ = Keymap.fromGroup Config.delBranchKeys "Delete Branch" deleteCurBranch
-    quitKeymap = Keymap.fromGroup Config.quitKeys "Quit" . fail $ "Quit"
+    delBranchKeymap _ = Keymap.fromKeyGroups Config.delBranchKeys "Delete Branch" deleteCurBranch
+    quitKeymap = Keymap.fromKeyGroups Config.quitKeys "Quit" . fail $ "Quit"
 
     deleteCurBranch = do
       _ <- popCurChild branchSelectorBoxModel Anchors.branches

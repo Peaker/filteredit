@@ -2,14 +2,11 @@ Filter combinators:
 
  Done: Comment
  Done: Disable
-
- * Not: Returns opposite of child
-
- * FocusDelegator around each to free up keys
-
- * And/Or: Logical composition of multiple children
+ Done: Returns opposite of child
 
  * Process/thread
+
+ * And/Or: Logical composition of multiple children
 
  * String
    * Key to toggle case sensitivity

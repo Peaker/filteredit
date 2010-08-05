@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell, TypeOperators #-}
 module Editor.Filter(
     Filter(..),
-    CommentData(..), commentTextEdit, commentBox, commentChild,
+    CommentData(..), commentTextEdit, commentBox, commentChild, commentFD,
     ReverseData(..), reverseFD, reverseChild
 ) where
 
@@ -23,7 +23,8 @@ data Filter = Comment (IRef CommentData)
             | None
   deriving (Show, Read, Eq, Ord)
 
-data CommentData = CommentData { _commentTextEdit :: TextEdit.Model,
+data CommentData = CommentData { _commentFD :: FocusDelegator.Model,
+                                 _commentTextEdit :: TextEdit.Model,
                                  _commentBox :: Box.Model,
                                  _commentChild :: Filter
                                }
@@ -35,13 +36,12 @@ data ReverseData = ReverseData { _reverseFD :: FocusDelegator.Model,
   deriving (Show, Read, Eq, Ord)
 
 $(mkLabels [''CommentData])
-
+commentFD :: CommentData :-> FocusDelegator.Model
 commentTextEdit :: CommentData :-> TextEdit.Model
 commentBox :: CommentData :-> Box.Model
 commentChild :: CommentData :-> Filter
 
 $(mkLabels [''ReverseData])
-
 reverseFD :: ReverseData :-> FocusDelegator.Model
 reverseChild :: ReverseData :-> Filter
 
