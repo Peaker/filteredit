@@ -3,8 +3,8 @@
 module Editor.Config(
     quitKeys, undoKeys, makeBranchKeys, delBranchKeys,
     enableKeys, disableKeys,
-    addCommentKeys, uncommentKeys,
-    reverseKeys,
+    addLabelKeys, unlabelKeys,
+    inverseKeys,
     disableBackgroundColor, disableFocusedBackgroundColor)
 where
 
@@ -31,11 +31,11 @@ quitKeys       = [ctrl 'q']
 undoKeys       = [ctrl 'z']
 makeBranchKeys = [ctrl 's']
 delBranchKeys  = [ctrl 'o']
-addCommentKeys = [altSemicolon, ascii ';']
-uncommentKeys  = [altSemicolon, ascii ';']
+addLabelKeys = [altSemicolon, ascii ';']
+unlabelKeys  = [altSemicolon, ascii ';']
 disableKeys    = [altThree]
 enableKeys     = [altThree]
-reverseKeys    = [ctrl 'n', ascii 'n']
+inverseKeys    = [ctrl 'n', ascii 'n']
 
 disableBackgroundColor = Vty.red
 disableFocusedBackgroundColor = Vty.magenta

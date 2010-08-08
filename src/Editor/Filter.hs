@@ -2,8 +2,8 @@
 {-# LANGUAGE TemplateHaskell, TypeOperators #-}
 module Editor.Filter(
     Filter(..),
-    CommentData(..), commentTextEdit, commentBox, commentChild, commentFD,
-    ReverseData(..), reverseFD, reverseChild
+    LabelData(..), labelTextEdit, labelBox, labelChild, labelFD,
+    InverseData(..), inverseFD, inverseChild
 ) where
 
 import           Data.Binary                           (Binary(..))
@@ -17,34 +17,34 @@ import qualified Graphics.UI.VtyWidgets.TextEdit       as TextEdit
 import qualified Graphics.UI.VtyWidgets.Box            as Box
 import qualified Graphics.UI.VtyWidgets.FocusDelegator as FocusDelegator
 
-data Filter = Comment (IRef CommentData)
+data Filter = Label (IRef LabelData)
             | Disable (IRef Filter)
-            | Reverse (IRef ReverseData)
+            | Inverse (IRef InverseData)
             | None
   deriving (Show, Read, Eq, Ord)
 
-data CommentData = CommentData { _commentFD :: FocusDelegator.Model,
-                                 _commentTextEdit :: TextEdit.Model,
-                                 _commentBox :: Box.Model,
-                                 _commentChild :: Filter
+data LabelData = LabelData { _labelFD :: FocusDelegator.Model,
+                                 _labelTextEdit :: TextEdit.Model,
+                                 _labelBox :: Box.Model,
+                                 _labelChild :: Filter
                                }
   deriving (Show, Read, Eq, Ord)
 
-data ReverseData = ReverseData { _reverseFD :: FocusDelegator.Model,
-                                 _reverseChild :: Filter
+data InverseData = InverseData { _inverseFD :: FocusDelegator.Model,
+                                 _inverseChild :: Filter
                                }
   deriving (Show, Read, Eq, Ord)
 
-$(mkLabels [''CommentData])
-commentFD :: CommentData :-> FocusDelegator.Model
-commentTextEdit :: CommentData :-> TextEdit.Model
-commentBox :: CommentData :-> Box.Model
-commentChild :: CommentData :-> Filter
+$(mkLabels [''LabelData])
+labelFD :: LabelData :-> FocusDelegator.Model
+labelTextEdit :: LabelData :-> TextEdit.Model
+labelBox :: LabelData :-> Box.Model
+labelChild :: LabelData :-> Filter
 
-$(mkLabels [''ReverseData])
-reverseFD :: ReverseData :-> FocusDelegator.Model
-reverseChild :: ReverseData :-> Filter
+$(mkLabels [''InverseData])
+inverseFD :: InverseData :-> FocusDelegator.Model
+inverseChild :: InverseData :-> Filter
 
 $(derive makeBinary ''Filter)
-$(derive makeBinary ''CommentData)
-$(derive makeBinary ''ReverseData)
+$(derive makeBinary ''LabelData)
+$(derive makeBinary ''InverseData)

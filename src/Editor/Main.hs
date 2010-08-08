@@ -6,9 +6,9 @@ module Main(main) where
 import           Prelude                               hiding ((.))
 import           Control.Category                      ((.))
 import           Control.Monad                         (liftM, (<=<))
-import           Data.Function.Utils                   (result)
-import           Data.Store.VtyWidgets            (MWidget, widgetDownTransaction,
-                                                   makeTextEdit, makeBox, appendBoxChild, popCurChild, makeChoiceWidget)
+import           Data.Function.Utils                   (Endo, result)
+import           Data.Store.VtyWidgets                 (MWidget, widgetDownTransaction, makeTextEdit,
+                                                        makeBox, appendBoxChild, popCurChild, makeChoiceWidget)
 import qualified Data.Store.Transaction                as Transaction
 import           Data.Store.Transaction                (Transaction)
 import           Data.Store.Property                   (composeLabel)
@@ -54,36 +54,36 @@ makeFocusDelegator :: (Monad m) =>
 makeFocusDelegator prop child = FocusDelegator.make (Property.set prop) child `liftM`
                                 Property.get prop
 
-makeCommentFilterEdit :: Monad m =>
-                         Transaction.Property ViewTag m Filter.CommentData ->
+makeLabelFilterEdit :: Monad m =>
+                         Transaction.Property ViewTag m Filter.LabelData ->
                          MWidget (Transaction ViewTag m)
-makeCommentFilterEdit commentDataP = do
+makeLabelFilterEdit labelDataP = do
   childEdit <- makeFilterEdit childP
   textEdit <- simpleTextEdit textEditP
   makeFocusDelegator fdP =<< makeBox Box.Vertical [ textEdit, Widget.atDisplay (Spacer.indent 4) childEdit ] boxP
   where
-    property = (`composeLabel` commentDataP)
-    textEditP = property Filter.commentTextEdit
-    fdP       = property Filter.commentFD
-    boxP      = property Filter.commentBox
-    childP    = property Filter.commentChild
+    property = (`composeLabel` labelDataP)
+    textEditP = property Filter.labelTextEdit
+    fdP       = property Filter.labelFD
+    boxP      = property Filter.labelBox
+    childP    = property Filter.labelChild
 
-prefix :: String -> Display a -> Display a
+horizontal :: Display a -> Display a -> Display a
+horizontal left right = Box.makeView Box.Horizontal [left, right]
+
+prefix :: String -> Endo (Display a)
 prefix = horizontal . TextView.make Vty.def_attr
 
-makeReverseFilterEdit :: Monad m =>
-                     Transaction.Property ViewTag m Filter.ReverseData ->
-                     MWidget (Transaction ViewTag m)
-makeReverseFilterEdit reverseDataP =
+makeInverseFilterEdit :: Monad m =>
+                         Transaction.Property ViewTag m Filter.InverseData ->
+                         MWidget (Transaction ViewTag m)
+makeInverseFilterEdit inverseDataP =
   makeFocusDelegator fdP .
     Widget.atDisplay (prefix "NOT ") =<<
     makeFilterEdit childP
   where
-    fdP    = Filter.reverseFD    `composeLabel` reverseDataP
-    childP = Filter.reverseChild `composeLabel` reverseDataP
-
-horizontal :: Display a -> Display a -> Display a
-horizontal left right = Box.makeView Box.Horizontal [left, right]
+    fdP    = Filter.inverseFD    `composeLabel` inverseDataP
+    childP = Filter.inverseChild `composeLabel` inverseDataP
 
 makeDisableFilterEdit :: Monad m =>
                          Transaction.Property ViewTag m Filter ->
@@ -103,25 +103,25 @@ makeFilterEdit filterP = do
   f <- Property.get filterP
   widget <- case f of
     Filter.None -> makeNoneEdit
-    Filter.Comment commentDataIRef ->
-      let commentDataP = Transaction.fromIRef commentDataIRef
-      in Widget.weakerKeys (delParentKeymap "Delete comment" Config.uncommentKeys $
-                            Filter.commentChild `composeLabel` commentDataP)
+    Filter.Label labelDataIRef ->
+      let labelDataP = Transaction.fromIRef labelDataIRef
+      in Widget.weakerKeys (delParentKeymap "Delete label" Config.unlabelKeys $
+                            Filter.labelChild `composeLabel` labelDataP)
          `liftM`
-         makeCommentFilterEdit commentDataP
-    Filter.Reverse reverseDataIRef ->
-      let reverseDataP = Transaction.fromIRef reverseDataIRef
-      in Widget.weakerKeys (delParentKeymap "Unreverse" Config.reverseKeys $
-                            Filter.reverseChild `composeLabel` reverseDataP) `liftM`
-         makeReverseFilterEdit reverseDataP
+         makeLabelFilterEdit labelDataP
+    Filter.Inverse inverseDataIRef ->
+      let inverseDataP = Transaction.fromIRef inverseDataIRef
+      in Widget.weakerKeys (delParentKeymap "Uninverse" Config.inverseKeys $
+                            Filter.inverseChild `composeLabel` inverseDataP) `liftM`
+         makeInverseFilterEdit inverseDataP
     Filter.Disable childIRef ->
       let childP = Transaction.fromIRef childIRef
       in Widget.weakerKeys (delParentKeymap "Enable" Config.enableKeys childP) `liftM`
          makeDisableFilterEdit childP
   return .
     Widget.weakerKeys (
-      wrapReverseKeymap `mappend`
-      wrapCommentKeymap `mappend`
+      wrapInverseKeymap `mappend`
+      wrapLabelKeymap `mappend`
       disableKeymap $ f) $
     widget
   where
@@ -132,15 +132,15 @@ makeFilterEdit filterP = do
     disable f = do
       iref <- Transaction.newIRef f
       Property.set filterP $ Filter.Disable iref
-    wrapCommentKeymap = Keymap.fromKeyGroups Config.addCommentKeys "Add comment" . wrapComment
-    wrapComment =
-      Property.set filterP . Filter.Comment <=<
-      Transaction.newIRef . Filter.CommentData (FocusDelegator.initModel True) (TextEdit.initModel "") Box.initModel
-    wrapReverseKeymap (Filter.Reverse {}) = mempty
-    wrapReverseKeymap f = Keymap.fromKeyGroups Config.reverseKeys "Reverse(NOT) on filter" . wrapReverse $ f
-    wrapReverse =
-      Property.set filterP . Filter.Reverse <=<
-      Transaction.newIRef . Filter.ReverseData (FocusDelegator.initModel False)
+    wrapLabelKeymap = Keymap.fromKeyGroups Config.addLabelKeys "Add label" . wrapLabel
+    wrapLabel =
+      Property.set filterP . Filter.Label <=<
+      Transaction.newIRef . Filter.LabelData (FocusDelegator.initModel True) (TextEdit.initModel "") Box.initModel
+    wrapInverseKeymap (Filter.Inverse {}) = mempty
+    wrapInverseKeymap f = Keymap.fromKeyGroups Config.inverseKeys "Inverse(NOT) on filter" . wrapInverse $ f
+    wrapInverse =
+      Property.set filterP . Filter.Inverse <=<
+      Transaction.newIRef . Filter.InverseData (FocusDelegator.initModel False)
 
 branchSelectorBoxModel :: Monad m => Transaction.Property DBTag m Box.Model
 branchSelectorBoxModel = Anchors.dbBoxsAnchor "branchSelector"
