@@ -1,8 +1,8 @@
 Filter combinators:
 
- Done: Comment
+ Done: Label
  Done: Disable
- Done: Returns opposite of child
+ Done: Inverse
 
  * Process/thread
 
