@@ -4,7 +4,7 @@ module Editor.Config(
     quitKeys, undoKeys, makeBranchKeys, delBranchKeys,
     enableKeys, disableKeys,
     addLabelKeys, unlabelKeys,
-    inverseKeys,
+    inverseKeys, processKeys,
     disableBackgroundColor, disableFocusedBackgroundColor)
 where
 
@@ -31,11 +31,12 @@ quitKeys       = [ctrl 'q']
 undoKeys       = [ctrl 'z']
 makeBranchKeys = [ctrl 's']
 delBranchKeys  = [ctrl 'o']
-addLabelKeys = [altSemicolon, ascii ';']
-unlabelKeys  = [altSemicolon, ascii ';']
+addLabelKeys   = [altSemicolon, ascii ';']
+unlabelKeys    = [altSemicolon, ascii ';']
 disableKeys    = [altThree]
 enableKeys     = [altThree]
 inverseKeys    = [ctrl 'n', ascii 'n']
+processKeys    = [ctrl 'p']
 
 disableBackgroundColor = Vty.red
 disableFocusedBackgroundColor = Vty.magenta

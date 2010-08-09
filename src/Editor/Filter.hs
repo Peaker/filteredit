@@ -3,7 +3,8 @@
 module Editor.Filter(
     Filter(..),
     LabelData(..), labelTextEdit, labelBox, labelChild, labelFD,
-    InverseData(..), inverseFD, inverseChild
+    InverseData(..), inverseFD, inverseChild,
+    ProcessData(..), processFD, processCompletion
 ) where
 
 import           Data.Binary                           (Binary(..))
@@ -14,20 +15,25 @@ import           Data.Derive.Binary                    (makeBinary)
 import           Data.Store.IRef                       (IRef)
 import           Data.Record.Label                     ((:->), mkLabels, label)
 import qualified Graphics.UI.VtyWidgets.TextEdit       as TextEdit
+import qualified Graphics.UI.VtyWidgets.Completion     as Completion
 import qualified Graphics.UI.VtyWidgets.Box            as Box
 import qualified Graphics.UI.VtyWidgets.FocusDelegator as FocusDelegator
 
 data Filter = Label (IRef LabelData)
             | Disable (IRef Filter)
             | Inverse (IRef InverseData)
+            | Process (IRef ProcessData)
             | None
   deriving (Show, Read, Eq, Ord)
 
+data ProcessData = ProcessData { _processFD :: FocusDelegator.Model,
+                                 _processCompletion :: Completion.Model }
+
 data LabelData = LabelData { _labelFD :: FocusDelegator.Model,
-                                 _labelTextEdit :: TextEdit.Model,
-                                 _labelBox :: Box.Model,
-                                 _labelChild :: Filter
-                               }
+                             _labelTextEdit :: TextEdit.Model,
+                             _labelBox :: Box.Model,
+                             _labelChild :: Filter
+                           }
   deriving (Show, Read, Eq, Ord)
 
 data InverseData = InverseData { _inverseFD :: FocusDelegator.Model,
@@ -45,6 +51,11 @@ $(mkLabels [''InverseData])
 inverseFD :: InverseData :-> FocusDelegator.Model
 inverseChild :: InverseData :-> Filter
 
+$(mkLabels [''ProcessData])
+processFD :: ProcessData :-> FocusDelegator.Model
+processCompletion :: ProcessData :-> Completion.Model
+
 $(derive makeBinary ''Filter)
 $(derive makeBinary ''LabelData)
 $(derive makeBinary ''InverseData)
+$(derive makeBinary ''ProcessData)

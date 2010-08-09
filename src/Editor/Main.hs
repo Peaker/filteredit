@@ -7,7 +7,7 @@ import           Prelude                               hiding ((.))
 import           Control.Category                      ((.))
 import           Control.Monad                         (liftM, (<=<))
 import           Data.Function.Utils                   (Endo, result)
-import           Data.Store.VtyWidgets                 (MWidget, widgetDownTransaction, makeTextEdit,
+import           Data.Store.VtyWidgets                 (MWidget, widgetDownTransaction, makeTextEdit, makeSimpleCompletion,
                                                         makeBox, appendBoxChild, popCurChild, makeChoiceWidget)
 import qualified Data.Store.Transaction                as Transaction
 import           Data.Store.Transaction                (Transaction)
@@ -23,6 +23,7 @@ import qualified Graphics.Vty                          as Vty
 import qualified Graphics.UI.VtyWidgets.TermImage      as TermImage
 import qualified Graphics.UI.VtyWidgets.TextView       as TextView
 import qualified Graphics.UI.VtyWidgets.TextEdit       as TextEdit
+import qualified Graphics.UI.VtyWidgets.Completion     as Completion
 import qualified Graphics.UI.VtyWidgets.Box            as Box
 import qualified Graphics.UI.VtyWidgets.FocusDelegator as FocusDelegator
 import qualified Graphics.UI.VtyWidgets.Spacer         as Spacer
@@ -85,6 +86,17 @@ makeInverseFilterEdit inverseDataP =
     fdP    = Filter.inverseFD    `composeLabel` inverseDataP
     childP = Filter.inverseChild `composeLabel` inverseDataP
 
+makeProcessFilterEdit :: Monad m =>
+                         Transaction.Property ViewTag m Filter.ProcessData ->
+                         MWidget (Transaction ViewTag m)
+makeProcessFilterEdit processDataP =
+  makeFocusDelegator fdP =<<
+    simpleCompletion processes completionP
+  where
+    processes   = ["gw_node:main", "cte:main"]
+    fdP         = Filter.processFD         `composeLabel` processDataP
+    completionP = Filter.processCompletion `composeLabel` processDataP
+
 makeDisableFilterEdit :: Monad m =>
                          Transaction.Property ViewTag m Filter ->
                          MWidget (Transaction ViewTag m)
@@ -102,7 +114,8 @@ makeFilterEdit :: Monad m =>
 makeFilterEdit filterP = do
   f <- Property.get filterP
   widget <- case f of
-    Filter.None -> makeNoneEdit
+    Filter.None -> Widget.weakerKeys processKeymap `liftM`
+                   makeNoneEdit
     Filter.Label labelDataIRef ->
       let labelDataP = Transaction.fromIRef labelDataIRef
       in Widget.weakerKeys (delParentKeymap "Delete label" Config.unlabelKeys $
@@ -114,24 +127,28 @@ makeFilterEdit filterP = do
       in Widget.weakerKeys (delParentKeymap "Uninverse" Config.inverseKeys $
                             Filter.inverseChild `composeLabel` inverseDataP) `liftM`
          makeInverseFilterEdit inverseDataP
+    Filter.Process processDataIRef ->
+      makeProcessFilterEdit (Transaction.fromIRef processDataIRef)
     Filter.Disable childIRef ->
       let childP = Transaction.fromIRef childIRef
       in Widget.weakerKeys (delParentKeymap "Enable" Config.enableKeys childP) `liftM`
          makeDisableFilterEdit childP
   return .
-    Widget.weakerKeys (
-      wrapInverseKeymap `mappend`
-      wrapLabelKeymap `mappend`
-      disableKeymap $ f) $
+    Widget.weakerKeys (mconcat [
+      wrapInverseKeymap,
+      wrapLabelKeymap,
+      disableKeymap] f) $
     widget
   where
+    processKeymap = Keymap.fromKeyGroups Config.processKeys "Process/Thread" $ process
+    process =
+      Property.set filterP . Filter.Process <=< Transaction.newIRef $
+      Filter.ProcessData (FocusDelegator.initModel True) (Completion.initModel "")
     delParentKeymap doc keys = Keymap.fromKeyGroups keys doc . delParent
     delParent childP = Property.set filterP =<< Property.get childP
     disableKeymap (Filter.Disable {}) = mempty
     disableKeymap f = Keymap.fromKeyGroups Config.disableKeys "Disable" $ disable f
-    disable f = do
-      iref <- Transaction.newIRef f
-      Property.set filterP $ Filter.Disable iref
+    disable = Property.set filterP . Filter.Disable <=< Transaction.newIRef
     wrapLabelKeymap = Keymap.fromKeyGroups Config.addLabelKeys "Add label" . wrapLabel
     wrapLabel =
       Property.set filterP . Filter.Label <=<
@@ -203,4 +220,15 @@ main = Db.withDb "/tmp/filteredit.db" $ runDbStore . Anchors.dbStore
 simpleTextEdit :: Monad m =>
                   Transaction.Property t m TextEdit.Model ->
                   MWidget (Transaction t m)
-simpleTextEdit = makeTextEdit 1 TextEdit.defaultAttr TextEdit.editingAttr
+simpleTextEdit = makeTextEdit "<empty>" 1 TextEdit.defaultAttr TextEdit.editingAttr
+
+fg :: Vty.Color -> Vty.Attr
+fg = (Vty.def_attr `Vty.with_fore_color`)
+
+simpleCompletion :: (Monad m) =>
+                    [String] ->
+                    Transaction.Property t m Completion.Model ->
+                    MWidget (Transaction t m)
+simpleCompletion options = makeSimpleCompletion options 10
+                           Vty.green (fg Vty.white) (fg Vty.red)
+                           "<empty>" 1 TextEdit.defaultAttr TextEdit.editingAttr
