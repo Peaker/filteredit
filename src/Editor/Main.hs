@@ -6,7 +6,7 @@ module Main(main) where
 import           Prelude                               hiding ((.))
 import           Control.Category                      ((.))
 import           Control.Monad                         (liftM, (<=<))
-import           Data.Function.Utils                   (Endo, result)
+import           Data.Function.Utils                   (Endo)
 import           Data.Store.VtyWidgets                 (MWidget, widgetDownTransaction, makeTextEdit, makeSimpleCompletion,
                                                         makeBox, appendBoxChild, popCurChild, makeChoiceWidget)
 import qualified Data.Store.Transaction                as Transaction
@@ -105,7 +105,7 @@ makeDisableFilterEdit childP =
    Widget.atSizedImage (TermImage.backgroundColor Config.disableBackgroundColor) .
    Widget.atDisplay (prefix "# ") .
    (Widget.atMKeymap . const $ Just mempty) .
-   (Widget.atMkImage . result . TermImage.inCursor . const $ Nothing))
+   (Widget.atImage . TermImage.inCursor . const $ Nothing))
   `liftM` makeFilterEdit childP
 
 makeFilterEdit :: Monad m =>
