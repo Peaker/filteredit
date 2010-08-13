@@ -23,6 +23,7 @@ import qualified Graphics.Vty                          as Vty
 import qualified Graphics.UI.VtyWidgets.TermImage      as TermImage
 import qualified Graphics.UI.VtyWidgets.TextView       as TextView
 import qualified Graphics.UI.VtyWidgets.TextEdit       as TextEdit
+import qualified Graphics.UI.VtyWidgets.TableGrid      as TableGrid
 import qualified Graphics.UI.VtyWidgets.Completion     as Completion
 import qualified Graphics.UI.VtyWidgets.Box            as Box
 import qualified Graphics.UI.VtyWidgets.FocusDelegator as FocusDelegator
@@ -52,7 +53,8 @@ makeFocusDelegator :: (Monad m) =>
                       Property.Property m FocusDelegator.Model ->
                       Widget (m ()) ->
                       MWidget m
-makeFocusDelegator prop child = FocusDelegator.make (Property.set prop) child `liftM`
+makeFocusDelegator prop child = FocusDelegator.make FocusDelegator.standardTheme
+                                (Property.set prop) child `liftM`
                                 Property.get prop
 
 makeLabelFilterEdit :: Monad m =>
@@ -190,7 +192,7 @@ main = Db.withDb "/tmp/filteredit.db" $ runDbStore . Anchors.dbStore
   where
     runDbStore store = do
       Anchors.initDB store
-      Run.widgetLoopWithOverlay 20 30 . const . makeWidget $ store
+      Run.widgetLoopWithOverlay TableGrid.standardTheme . const . makeWidget $ store
     makeWidget dbStore = widgetDownTransaction dbStore $ do
       view <- Property.get Anchors.view
       branches <- Property.get Anchors.branches
@@ -220,15 +222,10 @@ main = Db.withDb "/tmp/filteredit.db" $ runDbStore . Anchors.dbStore
 simpleTextEdit :: Monad m =>
                   Transaction.Property t m TextEdit.Model ->
                   MWidget (Transaction t m)
-simpleTextEdit = makeTextEdit "<empty>" 1 TextEdit.defaultAttr TextEdit.editingAttr
-
-fg :: Vty.Color -> Vty.Attr
-fg = (Vty.def_attr `Vty.with_fore_color`)
+simpleTextEdit = makeTextEdit TextEdit.standardTheme "<empty>" 1
 
 simpleCompletion :: (Monad m) =>
                     [String] ->
                     Transaction.Property t m Completion.Model ->
                     MWidget (Transaction t m)
-simpleCompletion options = makeSimpleCompletion options 10
-                           Vty.green (fg Vty.white) (fg Vty.red)
-                           "<empty>" 1 TextEdit.defaultAttr TextEdit.editingAttr
+simpleCompletion options = makeSimpleCompletion Completion.standardTheme options 10 "<empty>" 1
