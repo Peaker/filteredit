@@ -7,7 +7,7 @@ import           Prelude                               hiding ((.))
 import           Control.Category                      ((.))
 import           Control.Monad                         (liftM, (<=<))
 import           Data.Function.Utils                   (Endo)
-import           Data.Store.VtyWidgets                 (MWidget, widgetDownTransaction, makeTextEdit, makeSimpleCompletion,
+import           Data.Store.VtyWidgets                 (MWidget, widgetDownTransaction, makeLineEdit, makeSimpleCompletion,
                                                         makeBox, appendBoxChild, popCurChild, makeChoiceWidget)
 import qualified Data.Store.Transaction                as Transaction
 import           Data.Store.Transaction                (Transaction)
@@ -222,7 +222,7 @@ main = Db.withDb "/tmp/filteredit.db" $ runDbStore . Anchors.dbStore
 simpleTextEdit :: Monad m =>
                   Transaction.Property t m TextEdit.Model ->
                   MWidget (Transaction t m)
-simpleTextEdit = makeTextEdit TextEdit.standardTheme "<empty>" 1
+simpleTextEdit = makeLineEdit TextEdit.standardTheme "<empty>"
 
 simpleCompletion :: (Monad m) =>
                     [String] ->
