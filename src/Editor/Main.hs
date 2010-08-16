@@ -80,11 +80,16 @@ prefix = horizontal . TextView.make Vty.def_attr
 makeInverseFilterEdit :: Monad m =>
                          Transaction.Property ViewTag m Filter.InverseData ->
                          MWidget (Transaction ViewTag m)
-makeInverseFilterEdit inverseDataP =
-  makeFocusDelegator fdP .
+makeInverseFilterEdit inverseDataP = do
+  isDelegated <- FocusDelegator.focusDelegated `liftM` Property.get fdP
+  liftM (Widget.weakerKeys $ directionalKeymap isDelegated) .
+    makeFocusDelegator fdP .
     Widget.atDisplay (prefix "NOT ") =<<
     makeFilterEdit childP
   where
+    directionalKeymap False = Keymap.simpleton "Select inverse child" ([], Vty.KRight) $ fdSet True
+    directionalKeymap True  = Keymap.simpleton "Select inverse filter" ([], Vty.KLeft) $ fdSet False
+    fdSet  = Property.set fdP . FocusDelegator.initModel
     fdP    = Filter.inverseFD    `composeLabel` inverseDataP
     childP = Filter.inverseChild `composeLabel` inverseDataP
 
