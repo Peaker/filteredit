@@ -5,6 +5,7 @@ Filter combinators:
  Done: Inverse
 
  * Process/thread
+   * Completion based on real thread name list
 
  * And/Or: Logical composition of multiple children
 
